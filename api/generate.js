@@ -181,7 +181,14 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  var key = process.env.GEMINI_API_KEY;
+  // Bersihkan kesalahan tempel yang umum: spasi/baris baru, tanda kutip, atau awalan "GEMINI_API_KEY=".
+  var key = String(process.env.GEMINI_API_KEY || "")
+    .trim()
+    .replace(/^GEMINI_API_KEY\s*=\s*/i, "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
+  // Info samar (3 huruf awal, 2 huruf akhir, panjang) agar admin bisa memeriksa tanpa membuka isi key.
+  var keyInfo = key ? (key.slice(0, 3) + "..." + key.slice(-2) + ", " + key.length + " karakter") : "kosong";
   if (!key) {
     return res.status(500).json({ ok: false, error: "GEMINI_API_KEY belum diisi di Vercel." });
   }
@@ -228,9 +235,12 @@ module.exports = async function handler(req, res) {
     }
   }
   if (!data) {
+    var keyHint = /api key|api_key|credential|access token|unauthenticated|permission/i.test(lastErr)
+      ? " | Key yang terbaca server: " + keyInfo + " (key AI Studio baru berawalan AQ. dan panjangnya sekitar 50-an karakter)."
+      : "";
     return res.status(502).json({
       ok: false,
-      error: "Gemini gagal memproses video. Pastikan videonya publik (bukan private/unlisted). Detail: " + lastErr
+      error: "Gemini gagal memproses video. Pastikan videonya publik (bukan private/unlisted). Detail: " + lastErr + keyHint
     });
   }
 
